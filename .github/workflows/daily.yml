@@ -8,6 +8,8 @@ on:
 jobs:
   download:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
 
     steps:
       - name: Checkout repo
@@ -18,7 +20,7 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Install NepseUnofficialApi from GitHub
+      - name: Install NepseUnofficialApi
         run: pip install git+https://github.com/basic-bgnr/NepseUnofficialApi
 
       - name: Fix SSL certificate for NEPSE
@@ -35,13 +37,21 @@ jobs:
 
       - name: Download floorsheet
         run: |
-          mkdir -p data/${{ steps.date.outputs.DATE }}
-          nepse-cli --get-floorsheet --to-csv --output-file data/${{ steps.date.outputs.DATE }}/floorsheet_${{ steps.date.outputs.DATE }}.csv
+          mkdir -p data
+          nepse-cli --get-floorsheet --to-csv --output-file data/floorsheet_${{ steps.date.outputs.DATE }}.csv
 
-      - name: Save to repo
-        run: |
-          git config user.name "github-actions"
-          git config user.email "actions@github.com"
-          git add data/
-          git commit -m "Floorsheet ${{ steps.date.outputs.DATE }}" || echo "No changes"
-          git push
+      - name: Send email with floorsheet
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: smtp.gmail.com
+          server_port: 465
+          username: ${{ secrets.GMAIL_USER }}
+          password: ${{ secrets.GMAIL_PASS }}
+          subject: "NEPSE Floorsheet ${{ steps.date.outputs.DATE }}"
+          body: "Please find attached the NEPSE floorsheet for ${{ steps.date.outputs.DATE }}."
+          to: dilipkaphle@gmail.com
+          from: ${{ secrets.GMAIL_USER }}
+          attachments: data/floorsheet_${{ steps.date.outputs.DATE }}.csv
+
+      - name: Delete floorsheet after email
+        run: rm -f data/floorsheet_${{ steps.date.outputs.DATE }}.csv
