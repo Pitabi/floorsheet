@@ -31,14 +31,24 @@ jobs:
           sudo cp geotrust_alt.pem /usr/local/share/ca-certificates/geotrust_alt.crt
           sudo update-ca-certificates
 
-      - name: Get today's date
-        id: date
-        run: echo "DATE=$(date +%F)" >> $GITHUB_OUTPUT
-
       - name: Download floorsheet
         run: |
           mkdir -p data
-          nepse-cli --get-floorsheet --to-csv --output-file data/floorsheet_${{ steps.date.outputs.DATE }}.csv
+          nepse-cli --get-floorsheet --to-csv --output-file data/floorsheet_tmp.csv
+
+      - name: Read business date from CSV and rename file
+        id: bizdate
+        run: |
+          DATE=$(python3 - <<'PY'
+          import csv
+          with open("data/floorsheet_tmp.csv", encoding="utf-8-sig") as f:
+              reader = csv.DictReader(f)
+              first = next(reader, None)
+              print((first or {}).get("businessDate", "").strip()[:10])
+          PY
+          )
+          echo "DATE=$DATE" >> $GITHUB_OUTPUT
+          mv data/floorsheet_tmp.csv data/floorsheet_$DATE.csv
 
       - name: Send email with floorsheet
         uses: dawidd6/action-send-mail@v3
@@ -47,11 +57,11 @@ jobs:
           server_port: 465
           username: ${{ secrets.GMAIL_USER }}
           password: ${{ secrets.GMAIL_PASS }}
-          subject: "NEPSE Floorsheet ${{ steps.date.outputs.DATE }}"
-          body: "Please find attached the NEPSE floorsheet for ${{ steps.date.outputs.DATE }}."
+          subject: "NEPSE Floorsheet ${{ steps.bizdate.outputs.DATE }}"
+          body: "Please find attached the NEPSE floorsheet for ${{ steps.bizdate.outputs.DATE }}."
           to: dilipkaphle@gmail.com
           from: ${{ secrets.GMAIL_USER }}
-          attachments: data/floorsheet_${{ steps.date.outputs.DATE }}.csv
+          attachments: data/floorsheet_${{ steps.bizdate.outputs.DATE }}.csv
 
       - name: Delete floorsheet after email
-        run: rm -f data/floorsheet_${{ steps.date.outputs.DATE }}.csv
+        run: rm -f data/floorsheet_${{ steps.bizdate.outputs.DATE }}.csv
