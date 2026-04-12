@@ -18,8 +18,16 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Install NepseUnofficialApi
-        run: pip install NepseUnofficialApi
+      - name: Install NepseUnofficialApi from GitHub
+        run: pip install git+https://github.com/basic-bgnr/NepseUnofficialApi
+
+      - name: Fix SSL certificate for NEPSE
+        run: |
+          sudo curl -A "Mozilla Chrome Safari" "https://www.ssllabs.com/ssltest/getTestCertificate?d=nepalstock.com.np&cid=3a83c9a7e960f29b48e5719510e2e8582c37f72f3abf35e6f400eaacec38aad2&time=1695547628855" >> geotrust.pem
+          sudo curl -A "Mozilla Chrome Safari" "https://www.ssllabs.com/ssltest/getTestChain?d=nepalstock.com.np&cid=3a83c9a7e960f29b48e5719510e2e8582c37f72f3abf35e6f400eaacec38aad2&time=1695547628855" >> geotrust_alt.pem
+          sudo cp geotrust.pem /usr/local/share/ca-certificates/geotrust.crt
+          sudo cp geotrust_alt.pem /usr/local/share/ca-certificates/geotrust_alt.crt
+          sudo update-ca-certificates
 
       - name: Get today's date
         id: date
