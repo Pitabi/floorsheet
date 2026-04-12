@@ -1,0 +1,46 @@
+name: Daily NEPSE Floorsheet Download
+
+on:
+  schedule:
+    - cron: '30 9 * * 0-4'  # 3:15 PM NPT = 9:30 UTC, Sun-Thu
+  workflow_dispatch:          # allows manual run anytime
+
+jobs:
+  download:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install nepse-cli
+        run: pip install nepse-cli
+
+      - name: Get today's date
+        id: date
+        run: echo "DATE=$(date +%F)" >> $GITHUB_OUTPUT
+
+      - name: Download floorsheet
+        run: |
+          mkdir -p data/${{ steps.date.outputs.DATE }}
+          nepse-cli --get-floorsheet --to-csv --output-file data/${{ steps.date.outputs.DATE }}/floorsheet_${{ steps.date.outputs.DATE }}.csv
+
+      - name: Save to repo
+        run: |
+          git config user.name "github-actions"
+          git config user.email "actions@github.com"
+          git add data/
+          git commit -m "Floorsheet ${{ steps.date.outputs.DATE }}" || echo "No changes"
+          git push
+
+
+
+
+
+
+          
