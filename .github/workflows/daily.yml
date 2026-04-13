@@ -2,7 +2,7 @@ name: Daily NEPSE Floorsheet Download
 
 on:
   schedule:
-    - cron: '15 9 * * 1-5'   # 3:00 PM NPT
+    - cron: '20 9 * * 1-5'   # 3:05 PM NPT
     - cron: '45 9 * * 1-5'   # 3:30 PM NPT
     - cron: '15 10 * * 1-5'  # 4:00 PM NPT
     - cron: '45 10 * * 1-5'  # 4:30 PM NPT
