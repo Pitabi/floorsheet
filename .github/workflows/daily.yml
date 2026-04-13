@@ -2,7 +2,11 @@ name: Daily NEPSE Floorsheet Download
 
 on:
   schedule:
-    - cron: '30 9 * * 1-5'
+    - cron: '15 9 * * 1-5'   # 3:00 PM NPT
+    - cron: '45 9 * * 1-5'   # 3:30 PM NPT
+    - cron: '15 10 * * 1-5'  # 4:00 PM NPT
+    - cron: '45 10 * * 1-5'  # 4:30 PM NPT
+    - cron: '15 11 * * 1-5'  # 5:00 PM NPT
   workflow_dispatch:
 
 jobs:
@@ -36,7 +40,7 @@ jobs:
           mkdir -p data
           nepse-cli --get-floorsheet --to-csv --output-file data/floorsheet_tmp.csv
 
-      - name: Read business date from CSV and rename file
+      - name: Read business date and check if already sent
         id: bizdate
         run: |
           DATE=$(python3 - <<'PY'
@@ -48,9 +52,18 @@ jobs:
           PY
           )
           echo "DATE=$DATE" >> $GITHUB_OUTPUT
-          mv data/floorsheet_tmp.csv data/floorsheet_$DATE.csv
+
+          # Check if already sent today by looking for a marker file
+          if [ -f "sent/$DATE.done" ]; then
+            echo "ALREADY_SENT=true" >> $GITHUB_OUTPUT
+            echo "⏭️ Already sent for $DATE - skipping"
+          else
+            echo "ALREADY_SENT=false" >> $GITHUB_OUTPUT
+            mv data/floorsheet_tmp.csv data/floorsheet_$DATE.csv
+          fi
 
       - name: Send email with floorsheet
+        if: steps.bizdate.outputs.ALREADY_SENT == 'false'
         uses: dawidd6/action-send-mail@v3
         with:
           server_address: smtp.gmail.com
@@ -63,5 +76,14 @@ jobs:
           from: ${{ secrets.GMAIL_USER }}
           attachments: data/floorsheet_${{ steps.bizdate.outputs.DATE }}.csv
 
-      - name: Delete floorsheet after email
-        run: rm -f data/floorsheet_${{ steps.bizdate.outputs.DATE }}.csv
+      - name: Mark as sent and save marker to repo
+        if: steps.bizdate.outputs.ALREADY_SENT == 'false'
+        run: |
+          mkdir -p sent
+          echo "sent" > sent/${{ steps.bizdate.outputs.DATE }}.done
+          rm -f data/floorsheet_${{ steps.bizdate.outputs.DATE }}.csv
+          git config user.name "github-actions"
+          git config user.email "actions@github.com"
+          git add sent/
+          git commit -m "Sent floorsheet ${{ steps.bizdate.outputs.DATE }}"
+          git push
